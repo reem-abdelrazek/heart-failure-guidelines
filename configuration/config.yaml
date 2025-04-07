@@ -1,0 +1,11 @@
+embedding_model: sentence-transformers/all-MiniLM-L6-v2
+milvus:
+  host: localhost
+  port: 19530
+  collection_name: esc_guidelines
+  embedding_dimension: 384
+  index_type: IVF_FLAT
+  metric_type: L2
+
+chatbot_model:
+  model_name: qwen-2.5-32b

@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 from form import save_patient  # using the unified save_patient function from form.py
+from services.chatbot_service import chat_interface
 
 st.title("Heart Failure Patient Information Form")
 
@@ -205,10 +206,14 @@ if mode == "Patient":
         patient_id = save_patient(patient_data)
         st.success(
             f"✅ Patient form submitted and saved. Patient ID: {patient_id}")
-        st.experimental_set_query_params(
-            page="chatbot_service", patient_id=patient_id)
-        st.experimental_rerun()
+        
+        # After successful submission, show the chatbot interface
+        st.session_state['patient_id'] = patient_id
+        st.rerun()
 
+    # Add chatbot interface when patient_id is in session state
+    if 'patient_id' in st.session_state:
+        chat_interface(st.session_state['patient_id'])
 
 # --- Doctor Form Modes ---
 elif mode == "Doctor":

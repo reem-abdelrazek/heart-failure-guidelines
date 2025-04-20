@@ -8,4 +8,4 @@ milvus:
   metric_type: L2
 
 chatbot_model:
-  model_name: qwen-2.5-32b
+  model_name: meta-llama/llama-4-scout-17b-16e-instruct

@@ -206,14 +206,14 @@ if mode == "Patient":
         patient_id = save_patient(patient_data)
         st.success(
             f"✅ Patient form submitted and saved. Patient ID: {patient_id}")
-        
+
         # After successful submission, show the chatbot interface
         st.session_state['patient_id'] = patient_id
         st.rerun()
 
     # Add chatbot interface when patient_id is in session state
     if 'patient_id' in st.session_state:
-        chat_interface(st.session_state['patient_id'])
+        chat_interface(st.session_state['patient_id'], mode)
 
 # --- Doctor Form Modes ---
 elif mode == "Doctor":
@@ -326,6 +326,21 @@ elif mode == "Doctor":
             "Severe – Needs assistance for most tasks"
         ])
 
+        st.subheader("Lifestyle")
+        alcohol = st.checkbox("Alcohol Consumption")
+        alcohol_frequency = st.selectbox("How often do you drink alcohol?", [
+            "Rarely (a few times a year)",
+            "Occasionally (1–3 times/month)",
+            "Regularly (1–3 times/week)",
+            "Frequently (daily or almost daily)"
+        ]) if alcohol else None
+
+        smoking = st.checkbox("Smoking")
+        smoking_packs = st.number_input(
+            "Packs per day:", min_value=0.0, step=0.1, key="smoking_packs") if smoking else None
+        smoking_duration = st.number_input(
+            "Smoking duration (years):", min_value=0, key="smoking_duration") if smoking else None
+
         st.subheader("Comorbidities")
         comorbidities = st.multiselect("Check all that apply", [
             "Hypertension",
@@ -333,7 +348,8 @@ elif mode == "Doctor":
             "Dyslipidemia",
             "Kidney Disease",
             "Obesity",
-            "Sleep Apnea"
+            "Sleep Apnea",
+            "Family History of Heart Disease"
         ])
 
         if "Hypertension" in comorbidities:
@@ -371,6 +387,9 @@ elif mode == "Doctor":
             st.checkbox("Diagnosed via sleep study")
             st.selectbox("Type of Sleep Apnea", ["Obstructive", "Central"])
             st.selectbox("Treatment", ["On CPAP", "Not treated"])
+
+        if "Family History of Heart Disease" in comorbidities:
+            family_details = st.text_input("Relationship(s)")
 
         st.subheader("Current Medications")
         meds = st.multiselect("Medications", [
@@ -441,13 +460,13 @@ elif mode == "Doctor":
                 None,                        # 10. diabetes
                 None,                        # 11. diabetes_duration
                 None,                        # 12. dyslipidemia
-                None,                        # 13. alcohol
-                None,                        # 14. alcohol_frequency
-                None,                        # 15. smoking
-                None,                        # 16. smoking_packs
-                None,                        # 17. smoking_duration
+                alcohol,                     # 13. alcohol
+                alcohol_frequency,           # 14. alcohol_frequency
+                smoking,                     # 15. smoking
+                smoking_packs,               # 16. smoking_packs
+                smoking_duration,            # 17. smoking_duration
                 None,                        # 18. family_history
-                None,                        # 19. family_details
+                family_details,   # 19. family_details
                 None,                        # 20. obesity
                 hf_type,                     # 21. hf_type
                 symptoms_str,                # 22. symptoms
@@ -509,8 +528,14 @@ elif mode == "Doctor":
             patient_id = save_patient(doctor_data)
             st.success(
                 f"✅ Doctor form submitted and saved. Patient ID: {patient_id}")
-            st.markdown(
-                f"[Go to Chatbot Service](chatbot_service.py?patient_id={patient_id})")
+
+            # After successful submission, show the chatbot interface
+            st.session_state['patient_id'] = patient_id
+            st.rerun()
+
+        # Add chatbot interface when patient_id is in session state
+        if 'patient_id' in st.session_state:
+            chat_interface(st.session_state['patient_id'], mode)
 
     elif doctor_action == "Choose Existing Patient":
         st.info(

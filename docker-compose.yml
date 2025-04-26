@@ -47,7 +47,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.ui
-    image: <YOUR_ACR_LOGIN_SERVER>/streamlit-ui:latest
+    image: hfregistry.azurecr.io/streamlit-ui:latest
     container_name: streamlit-ui
     ports:
       - "8501:8501"

@@ -1,6 +1,6 @@
 import streamlit as st
 import sqlite3
-from form import save_patient  # using the unified save_patient function from form.py
+from form import save_patient, save_patient_data
 from services.chatbot_service import chat_interface
 
 st.title("Heart Failure Patient Information Form")
@@ -11,7 +11,7 @@ mode = st.radio("Choose form mode:", ("Patient", "Doctor"))
 # --- Patient Form ---
 if mode == "Patient":
     st.subheader("Patient Demographics")
-    name = st.text_input("Name")
+    patient_name = st.text_input("Name")
     age = st.number_input("Age", min_value=0, max_value=120, key="age")
     sex = st.selectbox("Sex", ["Male", "Female", "Other"])
     height = st.number_input("Height (cm)", min_value=0.0, key="height")
@@ -34,17 +34,17 @@ if mode == "Patient":
     else:
         bmi_category = None
 
+    # -------------------- Risk Factors (Comorbidities) --------------------
     st.subheader("Risk Factors")
 
     hypertension = st.checkbox("Hypertension")
-    hypertension_duration = st.number_input(
-        "Duration:", min_value=0, key="hypertension") if hypertension else None
 
     diabetes = st.checkbox("Diabetes")
-    diabetes_duration = st.number_input(
-        "Duration:", min_value=0, key="diabetes") if diabetes else None
+    diabetes_type = st.selectbox(
+        "Type of Diabetes", ["Type 1", "Type 2"])
 
     dyslipidemia = st.checkbox("Dyslipidemia")
+    obesity = st.checkbox("Obesity")
 
     alcohol = st.checkbox("Alcohol Consumption")
     alcohol_frequency = st.selectbox("How often do you drink alcohol?", [
@@ -64,8 +64,7 @@ if mode == "Patient":
     family_details = st.text_input(
         "Relationship(s)") if family_history else None
 
-    obesity = st.checkbox("Obesity")
-
+    # -------------------- Type of Heart Failure --------------------
     st.subheader("Type of Heart Failure (If known)")
     hf_types = st.multiselect("Select type(s) of heart failure", [
         "Ischemic Heart Failure",
@@ -77,6 +76,7 @@ if mode == "Patient":
     ])
     hf_type = ",".join(hf_types) if hf_types else None
 
+    # -------------------- Symptoms --------------------
     st.subheader("Symptoms")
     symptoms = st.multiselect("Check all that apply", [
         "Shortness of Breath (Dyspnea)",
@@ -94,14 +94,11 @@ if mode == "Patient":
         "Depression or mood issues",
         "Anxiety and Emotional stress"
     ])
-    symptoms_str = ",".join(symptoms) if symptoms else None
 
     symptom_severities = {}
     for symptom in symptoms:
         severity = st.slider(f"Severity of '{symptom}'", 1, 5, 3)
         symptom_severities[symptom] = severity
-    symptom_severities_str = str(
-        symptom_severities) if symptom_severities else None
 
     st.subheader("Symptom Onset")
     onset_value = st.number_input(
@@ -110,6 +107,17 @@ if mode == "Patient":
         "Time unit", ["days", "weeks", "months", "years"])
     symptom_onset = f"{onset_value} {onset_unit}" if onset_value else None
 
+    # Store individual symptoms
+    patient_individual_symptoms = []
+    for symptom in symptoms:
+        patient_individual_symptoms.append({
+            "symptom": symptom,
+            "severity": symptom_severities.get(symptom, None),
+            "duration": symptom_onset,
+            "category": "Patient Reported"
+        })
+
+    # -------------------- Symptom Triggers --------------------
     st.subheader("Symptom Triggers")
     triggers = st.multiselect("What situations make your symptoms worse?", [
         "Lying down",
@@ -120,10 +128,11 @@ if mode == "Patient":
         "None",
         "Other"
     ])
-    symptom_triggers = ",".join(triggers) if triggers else None
-    other_trigger = st.text_input(
+    symptom_triggers_str = ",".join(triggers) if triggers else None
+    other_trigger_detail = st.text_input(
         "Please describe other triggers (optional)") if "Other" in triggers else None
 
+    # -------------------- Impact --------------------
     st.subheader("Impact on Daily Life")
     impact = st.selectbox("How much do your symptoms affect your daily life?", [
         "Not at all",
@@ -133,9 +142,11 @@ if mode == "Patient":
     ])
 
     st.subheader("Signs")
-    pulse = st.text_input("Pulse")
-    bp = st.text_input("Blood Pressure")
+    heart_rate = st.number_input("Heart Rate (bpm)", min_value=0)
+    systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=0)
+    diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=0)
 
+    # -------------------- Treatment --------------------
     st.subheader("Treatment Information")
     meds = st.multiselect("Current Heart failure medications:", [
         "ACE Inhibitors / ARBs / ARNI",
@@ -149,9 +160,10 @@ if mode == "Patient":
         "Lipid lowering",
         "Antiarrhythmic"
     ])
-    medications = ",".join(meds) if meds else None
+    medications_str = ",".join(meds) if meds else None
     other_meds = st.text_input("Other medications taken:")
 
+    # -------------------- Physical Activity --------------------
     st.subheader("Physical Activity")
     activity = st.selectbox("Level of physical activity", [
         "None - Sedentary lifestyle, minimal movement",
@@ -160,52 +172,55 @@ if mode == "Patient":
         "High - Frequent workouts or physically demanding job"
     ])
 
-    if st.button("Submit"):
-        # Build the 32 patient-specific values:
-        patient_values = [
-            name,                                   # 1. name
-            age,                                    # 2. age
-            sex,                                    # 3. sex
-            height,                                 # 4. height
-            weight,                                 # 5. weight
-            bmi,                                    # 6. bmi
-            bmi_category,                           # 7. bmi_category
-            hypertension,                           # 8. hypertension
-            hypertension_duration if hypertension else None,  # 9. hypertension_duration
-            diabetes,                               # 10. diabetes
-            diabetes_duration if diabetes else None,         # 11. diabetes_duration
-            dyslipidemia,                           # 12. dyslipidemia
-            alcohol,                                # 13. alcohol
-            alcohol_frequency if alcohol else None,          # 14. alcohol_frequency
-            smoking,                                # 15. smoking
-            smoking_packs if smoking else None,              # 16. smoking_packs
-            smoking_duration if smoking else None,           # 17. smoking_duration
-            family_history,                         # 18. family_history
-            family_details if family_history else None,      # 19. family_details
-            obesity,                                # 20. obesity
-            hf_type,                                # 21. hf_type (merged)
-            symptoms_str,                           # 22. symptoms
-            symptom_severities_str if symptoms else None,    # 23. symptom_severities
-            symptom_onset,                          # 24. symptom_onset
-            symptom_triggers if triggers else None,         # 25. symptom_triggers
-            other_trigger if "Other" in triggers else None,   # 26. other_trigger
-            impact,                                 # 27. impact
-            pulse,                                  # 28. pulse
-            bp,                                     # 29. bp
-            medications,                            # 30. medications
-            other_meds,                             # 31. other_meds
-            activity                                # 32. physical_activity
-        ]
-        # Append 31 None values for the doctor-specific fields:
-        doctor_defaults = [None] * (63 - len(patient_values))
-        patient_data = tuple(patient_values + doctor_defaults)
-        st.write("Patient data:", patient_data)
-        st.write("Number of values submitted:", len(patient_data))
+    # -------------------- Submit --------------------
+    if st.button("Submit Patient Form"):
+        # Step 1: Save patient core info (Vitals, labs, etc. are None for patients)
+        patient_id = save_patient(
+            patient_name, age, sex, height, weight, bmi,
+            heart_rate, systolic_bp, diastolic_bp, None, None, None,  # Vitals
+            None, None, None, None, None, None,  # HF clinical
+            symptom_triggers_str, other_trigger_detail, impact,
+            alcohol, alcohol_frequency, smoking, smoking_packs, smoking_duration,
+            medications_str, other_meds,
+            None, None, None,  # Labs
+            None, None, None,  # More labs
+            None, None, None,  # Diagnostics
+            activity, None, None
+        )
 
-        # Call save_patient only once and capture the returned patient_id
-        patient_id = save_patient(patient_data)
-        st.success(
-            f"✅ Patient form submitted and saved. Patient ID: {patient_id}")
+        # Step 2: Save comorbidities (flags)
+        patient_comorbidities_data = {
+            "Hypertension": hypertension,
+            "Diabetes": diabetes,
+            "Dyslipidemia": dyslipidemia,
+            "Kidney Disease": None,
+            "Obesity": obesity,
+            "Sleep Apnea": None,
+            "Family History of Heart Disease": family_history
+        }
+
+        # Step 3: Save comorbidity details
+        patient_comorbidity_details = []
+        if diabetes_type:
+            patient_comorbidity_details.append(
+                {"detail_key": "Diabetes Type", "detail_value": f"{diabetes_type} years"})
+        if family_details:
+            patient_comorbidity_details.append(
+                {"detail_key": "Family History Details", "detail_value": family_details})
+        if bmi_category:
+            patient_comorbidity_details.append(
+                {"detail_key": "BMI Classification", "detail_value": bmi_category})
+
+        # Step 4: Insert into related tables
+        save_patient_data(
+            patient_id,
+            patient_individual_symptoms,
+            patient_comorbidities_data,
+            patient_comorbidity_details,
+            {}  # No CV events for patient form
+        )
+
+        st.success(f"✅ Patient form submitted. Patient ID: {patient_id}")
 
         # After successful submission, show the chatbot interface
         st.session_state['patient_id'] = patient_id
@@ -219,9 +234,10 @@ if mode == "Patient":
 elif mode == "Doctor":
     st.subheader("Doctor Options")
     doctor_action = st.radio("Choose action:", [
-                             "Create New Patient", "Choose Existing Patient", "General Questioning"])
+        "Create New Patient", "Choose Existing Patient", "General Questioning"])
 
     if doctor_action == "Create New Patient":
+        # -------------------- Patient Overview --------------------
         st.subheader("Patient Overview")
         patient_name = st.text_input("Patient Name")
         age = st.number_input("Age", min_value=0, key="doc_age")
@@ -233,29 +249,45 @@ elif mode == "Doctor":
         bmi = round(weight / ((height / 100) ** 2), 2) if height > 0 else 0
         st.text(f"BMI: {bmi}")
 
+        # -------------------- Vital Signs --------------------
         st.subheader("Vital Signs (Recent)")
-        heart_rate = st.number_input(
-            "Heart Rate (bpm)", min_value=0, key="heart_rate")
-        systolic_bp = st.number_input(
-            "Systolic BP (mmHg)", min_value=0, key="systolic_bp")
-        diastolic_bp = st.number_input(
-            "Diastolic BP (mmHg)", min_value=0, key="diastolic_bp")
+        heart_rate = st.number_input("Heart Rate (bpm)", min_value=0)
+        systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=0)
+        diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=0)
         respiratory_rate = st.number_input(
-            "Respiratory Rate (breaths/min)", min_value=0, key="respiratory_rate")
+            "Respiratory Rate (breaths/min)", min_value=0)
         oxygen_saturation = st.number_input(
-            "Oxygen Saturation (%)", min_value=0.0, max_value=100.0, key="oxygen_saturation")
+            "Oxygen Saturation (%)", min_value=0.0, max_value=100.0)
         temperature = st.number_input(
-            "Temperature (°C)", min_value=30.0, max_value=45.0, key="temperature")
+            "Temperature (°C)", min_value=30.0, max_value=45.0)
 
+        # -------------------- Clinical Status --------------------
         st.subheader("Clinical Status")
         hf_type = st.selectbox("Heart Failure Type", [
-                               "HFrEF", "HFpEF", "HFmrEF", "Unclear"])
-        lvef = st.number_input("LVEF (%)", min_value=0.0,
-                               max_value=100.0, key="lvef")
+            "HFrEF", "HFpEF", "HFmrEF", "Unclear"])
+        lvef = st.number_input("LVEF (%)", min_value=0.0, max_value=100.0)
         nyha = st.selectbox("NYHA Class", ["I", "II", "III", "IV"])
-        bnp = st.number_input("BNP / NT-proBNP", key="bnp")
+        bnp = st.number_input("BNP / NT-proBNP")
 
+        # -------------------- Symptoms --------------------
         st.subheader("Symptoms")
+        symptom_duration = st.selectbox("When did symptoms begin?", [
+            "Acute (within days)", "Subacute (1–4 weeks)", "Chronic (>1 month)", "Unclear"
+        ])
+
+        individual_symptoms = []
+
+        def collect_symptoms(symptom_list, category):
+            for symptom in symptom_list:
+                severity = st.slider(f"{symptom} severity",
+                                     1, 5, 3, key=f"{symptom}_severity")
+                individual_symptoms.append({
+                    "symptom": symptom,
+                    "severity": severity,
+                    "duration": symptom_duration,
+                    "category": category
+                })
+
         cardiopulmonary_symptoms = st.multiselect("Cardiopulmonary Symptoms", [
             "Dyspnea (shortness of breath)",
             "Orthopnea",
@@ -278,26 +310,12 @@ elif mode == "Doctor":
             "Nocturia",
             "Abdominal discomfort or bloating"
         ])
-        combined_symptoms = cardiopulmonary_symptoms + \
-            systemic_symptoms + gastrointestinal_symptoms
-        symptoms_str = ",".join(
-            combined_symptoms) if combined_symptoms else None
 
-        st.subheader("Symptom Severity (Clinical Assessment)")
-        symptom_severity_doctor = {}
-        for section, symptom_list in {
-            "Cardiopulmonary": cardiopulmonary_symptoms,
-            "Systemic & Functional": systemic_symptoms,
-            "Gastrointestinal / Renal": gastrointestinal_symptoms
-        }.items():
-            for symptom in symptom_list:
-                severity = st.slider(f"{symptom} severity", 1, 5, 3)
-                symptom_severity_doctor[symptom] = severity
-        # For doctor mode, we leave patient-reported symptom severities as None.
-        patient_symptom_severities = None
-        doctor_symptom_severity_str = str(
-            symptom_severity_doctor) if symptom_severity_doctor else None
+        collect_symptoms(cardiopulmonary_symptoms, "Cardiopulmonary")
+        collect_symptoms(systemic_symptoms, "Systemic & Functional")
+        collect_symptoms(gastrointestinal_symptoms, "Gastrointestinal / Renal")
 
+        # -------------------- Symptom Triggers --------------------
         st.subheader("Additional Symptom Context")
         symptom_triggers = st.multiselect("What triggers or worsens symptoms?", [
             "Physical exertion",
@@ -309,16 +327,9 @@ elif mode == "Doctor":
             "Unspecified",
             "Other"
         ])
-        # The UI element for "Other" remains; its value is not captured.
-        _ = st.text_input(
+        other_trigger_detail = st.text_input(
             "Describe other trigger (optional)") if "Other" in symptom_triggers else None
 
-        symptom_duration = st.selectbox("When did symptoms begin?", [
-            "Acute (within days)",
-            "Subacute (1–4 weeks)",
-            "Chronic (>1 month)",
-            "Unclear"
-        ])
         daily_impact = st.selectbox("How are daily activities affected?", [
             "No impact",
             "Mild – Can perform daily tasks with some fatigue",
@@ -326,6 +337,7 @@ elif mode == "Doctor":
             "Severe – Needs assistance for most tasks"
         ])
 
+        # -------------------- Lifestyle --------------------
         st.subheader("Lifestyle")
         alcohol = st.checkbox("Alcohol Consumption")
         alcohol_frequency = st.selectbox("How often do you drink alcohol?", [
@@ -337,10 +349,11 @@ elif mode == "Doctor":
 
         smoking = st.checkbox("Smoking")
         smoking_packs = st.number_input(
-            "Packs per day:", min_value=0.0, step=0.1, key="smoking_packs") if smoking else None
+            "Packs per day:", min_value=0.0, step=0.1) if smoking else None
         smoking_duration = st.number_input(
-            "Smoking duration (years):", min_value=0, key="smoking_duration") if smoking else None
+            "Smoking duration (years):", min_value=0) if smoking else None
 
+        # -------------------- Comorbidities --------------------
         st.subheader("Comorbidities")
         comorbidities = st.multiselect("Check all that apply", [
             "Hypertension",
@@ -352,180 +365,213 @@ elif mode == "Doctor":
             "Family History of Heart Disease"
         ])
 
+        # Follow-up variables:
+        bp_control = None
+        end_organ_damage = None
+        diabetes_type = None
+        hba1c_range = None
+        diabetes_complications = None
+        lipid_control = None
+        lipid_treatment = None
+        egfr_range = None
+        dialysis = None
+        bmi_classification = None
+        weight_loss_plan = None
+        sleep_study = None
+        sleep_apnea_type = None
+        sleep_apnea_treatment = None
+        family_details = None
+
         if "Hypertension" in comorbidities:
-            st.selectbox("Blood pressure control", [
-                         "Controlled (<140/90)", "Uncontrolled"])
-            st.multiselect("Signs of end-organ damage",
-                           ["LVH", "Proteinuria", "Retinopathy"])
-
+            bp_control = st.selectbox("Blood pressure control", [
+                                      "Controlled (<140/90)", "Uncontrolled"])
+            end_organ_damage = st.multiselect(
+                "Signs of end-organ damage", ["LVH", "Proteinuria", "Retinopathy"])
         if "Diabetes" in comorbidities:
-            st.selectbox("Type of Diabetes", ["Type 1", "Type 2"])
-            st.selectbox("HbA1c range", ["<6.5%", "6.5–7.5%", ">7.5%"])
-            st.multiselect("Diabetic complications", [
-                           "Neuropathy", "Nephropathy", "Retinopathy"])
-
+            diabetes_type = st.selectbox(
+                "Type of Diabetes", ["Type 1", "Type 2"])
+            hba1c_range = st.selectbox(
+                "HbA1c range", ["<6.5%", "6.5–7.5%", ">7.5%"])
+            diabetes_complications = st.multiselect(
+                "Diabetic complications", ["Neuropathy", "Nephropathy", "Retinopathy"])
         if "Dyslipidemia" in comorbidities:
-            st.selectbox("Lipid control", ["Controlled", "Uncontrolled"])
-            st.multiselect(
+            lipid_control = st.selectbox(
+                "Lipid control", ["Controlled", "Uncontrolled"])
+            lipid_treatment = st.multiselect(
                 "Treatment", ["Statins", "PCSK9 inhibitors", "Lifestyle only"])
-
         if "Kidney Disease" in comorbidities:
-            st.selectbox("eGFR Range", [
-                         ">90 (Normal)", "60–89 (Mild)", "30–59 (Moderate)", "<30 (Severe)"])
-            st.selectbox("On Dialysis", ["No", "Yes"])
-
+            egfr_range = st.selectbox("eGFR Range", [
+                                      ">90 (Normal)", "60–89 (Mild)", "30–59 (Moderate)", "<30 (Severe)"])
+            dialysis = st.selectbox("On Dialysis", ["No", "Yes"])
         if "Obesity" in comorbidities:
-            st.selectbox("BMI Classification", [
-                "Overweight (25–29.9)",
-                "Obesity Class I (30–34.9)",
-                "Obesity Class II (35–39.9)",
-                "Obesity Class III (≥40)"
-            ])
-            st.checkbox("Weight loss plan advised")
-
+            bmi_classification = st.selectbox("BMI Classification", ["Overweight (25–29.9)",
+                                                                     "Obesity Class I (30–34.9)",
+                                                                     "Obesity Class II (35–39.9)",
+                                                                     "Obesity Class III (≥40)"])
+            weight_loss_plan = st.checkbox("Weight loss plan advised")
         if "Sleep Apnea" in comorbidities:
-            st.checkbox("Diagnosed via sleep study")
-            st.selectbox("Type of Sleep Apnea", ["Obstructive", "Central"])
-            st.selectbox("Treatment", ["On CPAP", "Not treated"])
-
+            sleep_study = st.checkbox("Diagnosed via sleep study")
+            sleep_apnea_type = st.selectbox(
+                "Type of Sleep Apnea", ["Obstructive", "Central"])
+            sleep_apnea_treatment = st.selectbox(
+                "Treatment", ["On CPAP", "Not treated"])
         if "Family History of Heart Disease" in comorbidities:
             family_details = st.text_input("Relationship(s)")
 
+        # -------------------- Medications --------------------
         st.subheader("Current Medications")
-        meds = st.multiselect("Medications", [
-            "ACEi/ARB/ARNI", "Beta Blocker", "Diuretic", "MRA",
-            "SGLT2i", "Ivabradine", "Anticoagulant", "Antiplatelet",
-            "Statins", "Antiarrhythmics", "Other"
-        ])
+        meds = st.multiselect("Medications", ["ACEi/ARB/ARNI", "Beta Blocker", "Diuretic", "MRA",
+                                              "SGLT2i", "Ivabradine", "Anticoagulant", "Antiplatelet",
+                                              "Statins", "Antiarrhythmics", "Other"])
         medications_str = ",".join(meds) if meds else None
         other_meds = st.text_input("Please specify other medication(s):")
 
+        # -------------------- CV Events --------------------
         st.subheader("History of Cardiovascular Events")
-        _ = st.checkbox("History of MI")
-        _ = st.checkbox("PCI / CABG")
-        _ = st.checkbox("Stroke")
-        _ = st.checkbox("Hospitalization for HF (in past year)")
-        _ = st.checkbox("Repeated ED visits")
-        _ = st.checkbox("Cardiogenic shock")
-        cv_events = ""  # Placeholder
+        cv_event_mi = st.checkbox("History of MI")
+        cv_event_pci = st.checkbox("PCI / CABG")
+        cv_event_stroke = st.checkbox("Stroke")
+        cv_event_hf_hosp = st.checkbox("Hospitalization for HF (in past year)")
+        cv_event_ed_visits = st.checkbox("Repeated ED visits")
+        cv_event_shock = st.checkbox("Cardiogenic shock")
 
+        # -------------------- Labs --------------------
         st.subheader("Recent Lab Results")
-        creatinine = st.number_input(
-            "Creatinine (mg/dL)", min_value=0.0, key="Creatinine")
-        potassium = st.number_input(
-            "Potassium (mmol/L)", min_value=0.0, key="Potassium")
-        sodium = st.number_input(
-            "Sodium (mmol/L)", min_value=0.0, key="Sodium")
+        creatinine = st.number_input("Creatinine (mg/dL)", min_value=0.0)
+        potassium = st.number_input("Potassium (mmol/L)", min_value=0.0)
+        sodium = st.number_input("Sodium (mmol/L)", min_value=0.0)
         anemia_status = st.selectbox(
             "Anemia Status", ["No Anemia", "Mild", "Moderate", "Severe"])
-        _ = st.checkbox("Anemia present")
-        _ = st.checkbox("Iron supplementation ongoing")
-        _ = st.checkbox("Ferritin <100 or TSAT <20%")
+        anemia_present = st.checkbox("Anemia present")
+        iron_supplement = st.checkbox("Iron supplementation ongoing")
+        ferritin_issue = st.checkbox("Ferritin <100 or TSAT <20%")
 
+        # -------------------- Functional Assessment --------------------
         st.subheader("Functional Assessment (Optional)")
         walk_test = st.number_input(
-            "6-Minute Walk Test distance (meters)", min_value=0, key="walk_test")
-        vo2_max = st.number_input(
-            "VO2 max (ml/kg/min)", min_value=0.0, key="vo2_max")
+            "6-Minute Walk Test distance (meters)", min_value=0)
+        vo2_max = st.number_input("VO2 max (ml/kg/min)", min_value=0.0)
 
+        # -------------------- Devices --------------------
         st.subheader("Device Therapy")
         devices = st.multiselect(
             "Devices in use", ["ICD", "CRT", "Pacemaker", "None"])
         devices_str = ",".join(devices) if devices else None
 
+        # -------------------- Diagnostics --------------------
         st.subheader("Diagnostics")
         ecg = st.text_area("ECG Findings (optional)")
-        echo = st.multiselect("Echo Findings", [
-            "Reduced LVEF", "Dilated LV", "Valve disease",
-            "LVH", "Pericardial effusion"
-        ])
+        echo = st.multiselect("Echo Findings", ["Reduced LVEF", "Dilated LV", "Valve disease",
+                                                "LVH", "Pericardial effusion"])
         echo_str = ",".join(echo) if echo else None
         echo_other = st.text_input("Other echo findings (optional)")
 
+        # -------------------- Plan --------------------
         st.subheader("Plan / Follow-up")
         follow_plan = st.text_area("Treatment plan and follow-up notes")
 
         if st.button("Submit Patient Form"):
-            # Build tuple of 63 fields for doctor mode.
-            doctor_data = (
-                patient_name,                # 1. name
-                age,                         # 2. age
-                sex,                         # 3. sex
-                height,                      # 4. height
-                weight,                      # 5. weight
-                bmi,                         # 6. bmi
-                None,                        # 7. bmi_category (not provided)
-                None,                        # 8. hypertension
-                None,                        # 9. hypertension_duration
-                None,                        # 10. diabetes
-                None,                        # 11. diabetes_duration
-                None,                        # 12. dyslipidemia
-                alcohol,                     # 13. alcohol
-                alcohol_frequency,           # 14. alcohol_frequency
-                smoking,                     # 15. smoking
-                smoking_packs,               # 16. smoking_packs
-                smoking_duration,            # 17. smoking_duration
-                None,                        # 18. family_history
-                family_details,   # 19. family_details
-                None,                        # 20. obesity
-                hf_type,                     # 21. hf_type
-                symptoms_str,                # 22. symptoms
-                # 23. symptom_severities (patient-reported not provided)
-                None,
-                None,                        # 24. symptom_onset
-                # 25. symptom_triggers
+            # Step 1: Insert into patients table
+            patient_id = save_patient(
+                patient_name, age, sex, height, weight, bmi,
+                heart_rate, systolic_bp, diastolic_bp, respiratory_rate,
+                oxygen_saturation, temperature, hf_type, lvef, nyha, bnp,
                 ",".join(symptom_triggers) if symptom_triggers else None,
-                None,                        # 26. other_trigger (not captured)
-                None,                        # 27. impact
-                None,                        # 28. pulse
-                None,                        # 29. bp
-                medications_str,             # 30. medications
-                other_meds,                  # 31. other_meds
-                None,                        # 32. physical_activity
-                heart_rate,                  # 33. heart_rate
-                systolic_bp,                 # 34. systolic_bp
-                diastolic_bp,                # 35. diastolic_bp
-                respiratory_rate,            # 36. respiratory_rate
-                oxygen_saturation,           # 37. oxygen_saturation
-                temperature,                 # 38. temperature
-                lvef,                        # 39. lvef
-                nyha,                        # 40. nyha
-                bnp,                         # 41. bnp
-                # 42. cardiopulmonary_symptoms
-                ",".join(
-                    cardiopulmonary_symptoms) if cardiopulmonary_symptoms else None,
-                # 43. systemic_symptoms
-                ",".join(systemic_symptoms) if systemic_symptoms else None,
-                # 44. gi_symptoms
-                ",".join(
-                    gastrointestinal_symptoms) if gastrointestinal_symptoms else None,
-                # 45. symptom_severity (doctor-assessed)
-                doctor_symptom_severity_str,
-                symptom_duration,            # 46. symptom_duration
-                daily_impact,                # 47. daily_impact
-                # 48. comorbidities
-                ",".join(comorbidities) if comorbidities else None,
-                cv_events,                   # 49. cv_events
-                creatinine,                  # 50. creatinine
-                potassium,                   # 51. potassium
-                sodium,                      # 52. sodium
-                anemia_status,               # 53. anemia_status
-                # 54. anemia_present (not captured)
-                None,
-                # 55. iron_supplement (not captured)
-                None,
-                # 56. ferritin_issue (not captured)
-                None,
-                walk_test,                   # 57. walk_test
-                vo2_max,                     # 58. vo2_max
-                devices_str,                 # 59. devices
-                ecg,                         # 60. ecg
-                echo_str,                    # 61. echo
-                echo_other,                  # 62. echo_other
-                follow_plan                  # 63. follow_plan
+                other_trigger_detail,
+                daily_impact,
+                alcohol, alcohol_frequency,
+                smoking, smoking_packs, smoking_duration,
+                medications_str, other_meds,
+                creatinine, potassium, sodium,
+                anemia_status, anemia_present, iron_supplement, ferritin_issue,
+                walk_test, vo2_max, devices_str,
+                ecg, echo_str, echo_other, follow_plan
             )
-            # Call save_patient once and capture patient_id
-            patient_id = save_patient(doctor_data)
+
+            # Step 2: Prepare data for related tables
+
+            # Symptoms (already structured as individual_symptoms)
+            # Example:
+            # individual_symptoms = [{"symptom": "Dyspnea", "severity": 4, "duration": "Chronic", "category": "Cardiopulmonary"}, ...]
+
+            # Comorbidities main flags
+            comorbidities_data = {
+                "Hypertension": "Hypertension" in comorbidities,
+                "Diabetes": "Diabetes" in comorbidities,
+                "Dyslipidemia": "Dyslipidemia" in comorbidities,
+                "Kidney Disease": "Kidney Disease" in comorbidities,
+                "Obesity": "Obesity" in comorbidities,
+                "Sleep Apnea": "Sleep Apnea" in comorbidities,
+                "Family History of Heart Disease": "Family History of Heart Disease" in comorbidities
+            }
+
+            # Comorbidity details
+            comorbidity_details_data = []
+            if bp_control:
+                comorbidity_details_data.append(
+                    {"detail_key": "BP Control", "detail_value": bp_control})
+            if end_organ_damage:
+                comorbidity_details_data.append(
+                    {"detail_key": "End-organ damage", "detail_value": ", ".join(end_organ_damage)})
+            if diabetes_type:
+                comorbidity_details_data.append(
+                    {"detail_key": "Diabetes Type", "detail_value": diabetes_type})
+            if hba1c_range:
+                comorbidity_details_data.append(
+                    {"detail_key": "HbA1c Range", "detail_value": hba1c_range})
+            if diabetes_complications:
+                comorbidity_details_data.append(
+                    {"detail_key": "Diabetes Complications", "detail_value": ", ".join(diabetes_complications)})
+            if lipid_control:
+                comorbidity_details_data.append(
+                    {"detail_key": "Lipid Control", "detail_value": lipid_control})
+            if lipid_treatment:
+                comorbidity_details_data.append(
+                    {"detail_key": "Lipid Treatment", "detail_value": ", ".join(lipid_treatment)})
+            if egfr_range:
+                comorbidity_details_data.append(
+                    {"detail_key": "eGFR Range", "detail_value": egfr_range})
+            if dialysis:
+                comorbidity_details_data.append(
+                    {"detail_key": "On Dialysis", "detail_value": dialysis})
+            if bmi_classification:
+                comorbidity_details_data.append(
+                    {"detail_key": "BMI Classification", "detail_value": bmi_classification})
+            if weight_loss_plan is not None:
+                comorbidity_details_data.append(
+                    {"detail_key": "Weight Loss Plan Advised", "detail_value": str(weight_loss_plan)})
+            if sleep_study is not None:
+                comorbidity_details_data.append(
+                    {"detail_key": "Diagnosed via Sleep Study", "detail_value": str(sleep_study)})
+            if sleep_apnea_type:
+                comorbidity_details_data.append(
+                    {"detail_key": "Sleep Apnea Type", "detail_value": sleep_apnea_type})
+            if sleep_apnea_treatment:
+                comorbidity_details_data.append(
+                    {"detail_key": "Sleep Apnea Treatment", "detail_value": sleep_apnea_treatment})
+            if family_details:
+                comorbidity_details_data.append(
+                    {"detail_key": "Family History Details", "detail_value": family_details})
+
+            # CV events
+            cv_events_data = {
+                "History of MI": cv_event_mi,
+                "PCI / CABG": cv_event_pci,
+                "Stroke": cv_event_stroke,
+                "Hospitalization for HF": cv_event_hf_hosp,
+                "Repeated ED visits": cv_event_ed_visits,
+                "Cardiogenic shock": cv_event_shock
+            }
+
+            # Step 3: Insert related data
+            save_patient_data(
+                patient_id,
+                individual_symptoms,
+                comorbidities_data,
+                comorbidity_details_data,
+                cv_events_data
+            )
+
             st.success(
                 f"✅ Doctor form submitted and saved. Patient ID: {patient_id}")
 

@@ -1,0 +1,18 @@
+name: Build & Push Streamlit UI
+on: [ push ]
+jobs:
+  build:
+    if: github.ref == 'refs/heads/deployment'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: ACR Login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username:     ${{ secrets.ACR_USERNAME }}
+          password:     ${{ secrets.ACR_PASSWORD }}
+      - name: Build & Push
+        run: |
+          docker build -f Dockerfile.ui -t ${{ secrets.ACR_LOGIN_SERVER }}/streamlit-ui:latest .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/streamlit-ui:latest

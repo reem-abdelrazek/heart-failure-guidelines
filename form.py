@@ -1,5 +1,8 @@
 import streamlit as st
-import sqlite3
+import os
+import psycopg2
+
+DB_CONN = os.getenv("DB_CONN")
 
 
 def create_patient_table():
@@ -111,7 +114,7 @@ def save_patient(
     walk_test, vo2_max, devices_str, ecg, echo_str, echo_other,
     follow_plan
 ):
-    conn = sqlite3.connect("patients.db")
+    conn = psycopg2.connect(DB_CONN)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -166,7 +169,7 @@ def save_patient_data(patient_id, individual_symptoms, comorbidities_data, comor
     - comorbidity_details_data: List of dicts with keys: detail_key, detail_value.
     - cv_events_data: Dict with keys (event name) and boolean values.
     """
-    conn = sqlite3.connect("patients.db")
+    conn = psycopg2.connect(DB_CONN)
     cursor = conn.cursor()
 
     # Insert symptoms

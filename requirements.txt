@@ -13,6 +13,7 @@ numpy==1.26.4
 pandas==2.2.1
 scikit-learn==1.4.1.post1
 httpx==0.24.0
+psycopg2-binary>=2.9
 
 
 # pip install "unsloth[cu124-torch251] @ git+https://github.com/unslothai/unsloth.git@6bdaef3eebb117470f6ab263b23bc725080fe66e"

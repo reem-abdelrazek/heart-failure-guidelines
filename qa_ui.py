@@ -1,7 +1,10 @@
 import streamlit as st
-import sqlite3
+import os
+import psycopg2
 from form import save_patient, save_patient_data
 from services.chatbot_service import chat_interface
+
+DB_CONN = os.getenv("DB_CONN")
 
 st.title("Heart Failure Patient Information Form")
 

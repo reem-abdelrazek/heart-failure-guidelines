@@ -24,7 +24,7 @@ jobs:
       - name: Build & Push UI image
         run: |
           docker build -f Dockerfile.ui \
-            -t ${{ secrets.ACR_LOGIN_SERVER }}/streamlit-ui:latest .
+          -t ${{ secrets.ACR_LOGIN_SERVER }}/streamlit-ui:latest .
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/streamlit-ui:latest
 
       # 3) Deploy your docker-compose stack via the publish profile

@@ -2,5 +2,9 @@
   {
     "type": "sqlite",
     "path": "c:\\Users\\reema\\OneDrive\\Desktop\\thesis\\patients.db"
+  },
+  {
+    "type": "sqlite",
+    "path": "c:\\Users\\reema\\OneDrive\\Desktop\\thesis\\heart-failure-guidelines\\patients.db"
   }
 ]

@@ -134,7 +134,7 @@ if __name__ == "__main__":
     connections.connect(host=MILVUS_HOST, port=MILVUS_PORT)
 
     # PDF File Path
-    PDF_PATH = r"C:\Users\reema\OneDrive\Desktop\thesis\esc_guidelines1.pdf"
+    PDF_PATH = r"C:\Users\reema\OneDrive\Desktop\thesis\heart-failure-guidelines\esc_guidelines1.pdf"
 
     # Create or get the collection
     collection = create_collection()

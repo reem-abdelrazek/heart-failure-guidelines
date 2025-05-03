@@ -41,7 +41,7 @@ if mode == "Patient":
 
     diabetes = st.checkbox("Diabetes")
     diabetes_type = st.selectbox(
-        "Type of Diabetes", ["Type 1", "Type 2"])
+        "Type of Diabetes", ["Type 1", "Type 2"]) if diabetes else None
 
     dyslipidemia = st.checkbox("Dyslipidemia")
     obesity = st.checkbox("Obesity")
@@ -102,7 +102,7 @@ if mode == "Patient":
 
     st.subheader("Symptom Onset")
     onset_value = st.number_input(
-        "How long have you had these symptoms?", min_value=0, key="onset_value")
+        "How long have you had these symptoms?", min_value=0, value=None, key="onset_value")
     onset_unit = st.selectbox(
         "Time unit", ["days", "weeks", "months", "years"])
     symptom_onset = f"{onset_value} {onset_unit}" if onset_value else None
@@ -142,9 +142,9 @@ if mode == "Patient":
     ])
 
     st.subheader("Signs")
-    heart_rate = st.number_input("Heart Rate (bpm)", min_value=0)
-    systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=0)
-    diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=0)
+    heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, value=None)
+    systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=0, value=None)
+    diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=0, value=None)
 
     # -------------------- Treatment --------------------
     st.subheader("Treatment Information")
@@ -177,15 +177,17 @@ if mode == "Patient":
         # Step 1: Save patient core info (Vitals, labs, etc. are None for patients)
         patient_id = save_patient(
             patient_name, age, sex, height, weight, bmi,
-            heart_rate, systolic_bp, diastolic_bp, None, None, None,  # Vitals
-            None, None, None, None, None, None,  # HF clinical
-            symptom_triggers_str, other_trigger_detail, impact,
-            alcohol, alcohol_frequency, smoking, smoking_packs, smoking_duration,
+            heart_rate, systolic_bp, diastolic_bp, None,
+            None, None, hf_type, None, None, None, None,
+            symptom_triggers_str if symptom_triggers_str else None,
+            other_trigger_detail, impact,
+            alcohol, alcohol_frequency,
+            smoking, smoking_packs, smoking_duration, activity,
             medications_str, other_meds,
             None, None, None,  # Labs
-            None, None, None,  # More labs
+            None, None, None, None, # More labs
             None, None, None,  # Diagnostics
-            activity, None, None
+            None, None, None, None
         )
 
         # Step 2: Save comorbidities (flags)
@@ -251,28 +253,38 @@ elif mode == "Doctor":
 
         # -------------------- Vital Signs --------------------
         st.subheader("Vital Signs (Recent)")
-        heart_rate = st.number_input("Heart Rate (bpm)", min_value=0)
-        systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=0)
-        diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=0)
+        heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, value=None)
+        systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=0, value=None)
+        diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=0, value=None)
         respiratory_rate = st.number_input(
-            "Respiratory Rate (breaths/min)", min_value=0)
+            "Respiratory Rate (breaths/min)", min_value=0, value=None)
         oxygen_saturation = st.number_input(
-            "Oxygen Saturation (%)", min_value=0.0, max_value=100.0)
+            "Oxygen Saturation (%)", min_value=0.0, max_value=100.0, value=None)
         temperature = st.number_input(
-            "Temperature (°C)", min_value=30.0, max_value=45.0)
+            "Temperature (°C)", min_value=30.0, max_value=45.0, value=None)
 
         # -------------------- Clinical Status --------------------
         st.subheader("Clinical Status")
-        hf_type = st.selectbox("Heart Failure Type", [
-            "HFrEF", "HFpEF", "HFmrEF", "Unclear"])
-        lvef = st.number_input("LVEF (%)", min_value=0.0, max_value=100.0)
-        nyha = st.selectbox("NYHA Class", ["I", "II", "III", "IV"])
-        bnp = st.number_input("BNP / NT-proBNP")
+        st.subheader("Type of Heart Failure")
+        hf_type = st.selectbox("Select type of heart failure", [
+            None,
+            "Ischemic Heart Failure",
+            "Dilated Cardiomyopathy (DCM)",
+            "Hypertrophic Cardiomyopathy (HCM)",
+            "Valvular Heart Disease",
+            "Peripartum Cardiomyopathy",
+            "Genetic Cardiomyopathy"
+    ])
+        EF_type = st.selectbox("Ejection Fraction", [
+            None, "HFrEF", "HFpEF", "HFmrEF", "Unclear"])
+        lvef = st.number_input("LVEF (%)", min_value=0.0, max_value=100.0, value=None)
+        nyha = st.selectbox("NYHA Class", [None, "I", "II", "III", "IV"])
+        bnp = st.number_input("BNP / NT-proBNP", value=None)
 
         # -------------------- Symptoms --------------------
         st.subheader("Symptoms")
         symptom_duration = st.selectbox("When did symptoms begin?", [
-            "Acute (within days)", "Subacute (1–4 weeks)", "Chronic (>1 month)", "Unclear"
+            "No symptoms", "Acute (within days)", "Subacute (1–4 weeks)", "Chronic (>1 month)", "Unclear"
         ])
 
         individual_symptoms = []
@@ -352,6 +364,15 @@ elif mode == "Doctor":
             "Packs per day:", min_value=0.0, step=0.1) if smoking else None
         smoking_duration = st.number_input(
             "Smoking duration (years):", min_value=0) if smoking else None
+        
+        # -------------------- Physical Activity --------------------
+        st.subheader("Physical Activity")
+        activity = st.selectbox("Level of physical activity", [
+            "None - Sedentary lifestyle, minimal movement",
+            "Light activity - Occasional walking or household chores",
+            "Moderate activity - Regular walking, light exercise 3-4 days/week",
+            "High - Frequent workouts or physically demanding job"
+        ])
 
         # -------------------- Comorbidities --------------------
         st.subheader("Comorbidities")
@@ -437,9 +458,9 @@ elif mode == "Doctor":
 
         # -------------------- Labs --------------------
         st.subheader("Recent Lab Results")
-        creatinine = st.number_input("Creatinine (mg/dL)", min_value=0.0)
-        potassium = st.number_input("Potassium (mmol/L)", min_value=0.0)
-        sodium = st.number_input("Sodium (mmol/L)", min_value=0.0)
+        creatinine = st.number_input("Creatinine (mg/dL)", min_value=0.0, value=None)
+        potassium = st.number_input("Potassium (mmol/L)", min_value=0.0, value=None)
+        sodium = st.number_input("Sodium (mmol/L)", min_value=0.0, value=None)
         anemia_status = st.selectbox(
             "Anemia Status", ["No Anemia", "Mild", "Moderate", "Severe"])
         anemia_present = st.checkbox("Anemia present")
@@ -449,8 +470,8 @@ elif mode == "Doctor":
         # -------------------- Functional Assessment --------------------
         st.subheader("Functional Assessment (Optional)")
         walk_test = st.number_input(
-            "6-Minute Walk Test distance (meters)", min_value=0)
-        vo2_max = st.number_input("VO2 max (ml/kg/min)", min_value=0.0)
+            "6-Minute Walk Test distance (meters)", min_value=0, value=None)
+        vo2_max = st.number_input("VO2 max (ml/kg/min)", min_value=0.0, value=None)
 
         # -------------------- Devices --------------------
         st.subheader("Device Therapy")
@@ -475,12 +496,12 @@ elif mode == "Doctor":
             patient_id = save_patient(
                 patient_name, age, sex, height, weight, bmi,
                 heart_rate, systolic_bp, diastolic_bp, respiratory_rate,
-                oxygen_saturation, temperature, hf_type, lvef, nyha, bnp,
+                oxygen_saturation, temperature, hf_type, EF_type, lvef, nyha, bnp,
                 ",".join(symptom_triggers) if symptom_triggers else None,
                 other_trigger_detail,
                 daily_impact,
                 alcohol, alcohol_frequency,
-                smoking, smoking_packs, smoking_duration,
+                smoking, smoking_packs, smoking_duration, activity,
                 medications_str, other_meds,
                 creatinine, potassium, sodium,
                 anemia_status, anemia_present, iron_supplement, ferritin_issue,

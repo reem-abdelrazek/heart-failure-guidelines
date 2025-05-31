@@ -2,18 +2,11 @@ nltk==3.8.1
 pymilvus==2.5.4
 sentence-transformers==3.4.1
 tqdm==4.67.1
-streamlit==1.43.2
+streamlit>=1.24.0
 PyYAML==6.0.2
 PyMuPDF==1.25.3
-bitsandbytes==0.44.1
-unsloth-zoo
-xformers==0.0.28.post2
-peft==0.14.0
 numpy==1.26.4
 pandas==2.2.1
 scikit-learn==1.4.1.post1
-httpx==0.24.0
-
-
-# pip install "unsloth[cu124-torch251] @ git+https://github.com/unslothai/unsloth.git@6bdaef3eebb117470f6ab263b23bc725080fe66e"
-# pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+httpx>=0.24.0
+groq>=0.4.0

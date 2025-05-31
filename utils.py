@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-# @Filename:    utils.py
-# @Author:      Kuro
-# @Time:        3/22/2025 7:27 PM
 import json
 import re
 
@@ -30,7 +25,8 @@ def clean_text(text):
 
 def clean_extracted_text(text):
     """Cleans extracted text by removing excessive spaces, new lines, and formatting issues."""
-    text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces/newlines with a single space
+    text = re.sub(
+        r'\s+', ' ', text)  # Replace multiple spaces/newlines with a single space
     text = text.strip()  # Remove leading/trailing spaces
     return text
 
@@ -85,7 +81,8 @@ def extract_tables_from_pdf(pdf_path, difference_between_each_row=100):
                     # Same table, so concatenate the text.
                     current_table_text += table_text
                     # Optionally, update the bbox for the group:
-                    current_bbox = (current_bbox[0], current_bbox[1], current_bbox[2], table_bbox[3])
+                    current_bbox = (
+                        current_bbox[0], current_bbox[1], current_bbox[2], table_bbox[3])
                 else:
                     # New table group detected: store the previous group's text.
                     extracted_tables.append(current_table_text)

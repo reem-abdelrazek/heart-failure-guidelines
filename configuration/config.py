@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-# @Filename:    config.py
-# @Author:      Kuro
-# @Time:        3/22/2025 7:27 PM
-
 import os
 import yaml
 
@@ -22,4 +16,3 @@ METRIC_TYPE = MILVUS['metric_type']
 
 CHATBOT_MODEL = config['chatbot_model']
 CHATBOT_MODEL_NAME = CHATBOT_MODEL['model_name']
-

@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-# @Filename:    db_service.py
-# @Author:      Kuro
-# @Time:        3/22/2025 7:26 PM
 from services.milvus_service import MilvusService
 
 milvus_service = MilvusService()

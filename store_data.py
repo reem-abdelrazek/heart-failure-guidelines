@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-# @Filename:    store_data.py
-# @Author:      Kuro
-# @Time:        3/22/2025 6:20 PM
-
 from utils import extract_text_from_pdf, extract_tables_from_pdf, clean_text
 from configuration.config import EMBEDDING_MODEL, MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, METRIC_TYPE, VECTOR_DIM, INDEX_TYPE
 from nltk.tokenize import sent_tokenize

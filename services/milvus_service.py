@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-# @Filename:    milvus_service.py
-# @Author:      Kuro
-# @Time:        3/22/2025 7:48 PM
-
 from pymilvus import connections, Collection
 from sentence_transformers import SentenceTransformer
 
@@ -40,14 +34,17 @@ class MilvusService:
         query_embedding = self.embedder.encode(query).tolist()
 
         # Search in Milvus
-        search_params = {"metric_type": METRIC_TYPE, "params": {"itopk_size": 16, "search_width": 16, "team_size": 8}}
-        results = self.collection.search(data=[query_embedding], anns_field="embedding", param=search_params, limit=top_k, output_fields=["text"])
+        search_params = {"metric_type": METRIC_TYPE, "params": {
+            "itopk_size": 16, "search_width": 16, "team_size": 8}}
+        results = self.collection.search(
+            data=[query_embedding], anns_field="embedding", param=search_params, limit=top_k, output_fields=["text"])
 
         # Format results
         matches = []
         if results and len(results) > 0:
             hits = results[0]  # Get hits from the first (and only) query
             for hit in hits:
-                matches.append({"id": hit.id, "score": hit.score, "metadata": {"text": hit.entity.get("text")}})
+                matches.append({"id": hit.id, "score": hit.score, "metadata": {
+                               "text": hit.entity.get("text")}})
 
         return matches

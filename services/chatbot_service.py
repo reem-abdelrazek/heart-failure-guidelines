@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-# @Filename:    chatbot_service.py
-# @Author:      Kuro
-# @Time:        3/22/2025 7:27 PM
-
 import streamlit as st
 import sqlite3
 from pymilvus import connections, Collection
@@ -99,6 +93,9 @@ class ChatbotService:
         patient_data["cv_events"] = [
             {"event_key": row[0], "event_present": bool(row[1])} for row in cv_events
         ]
+
+        if 'activity' in patient_data:
+            patient_data['physical_activity'] = patient_data['activity']
 
         return patient_data
 
@@ -227,17 +224,23 @@ class ChatbotService:
         # Create the prompt for Groq
         user_message = f"""
         Patient Information:
-        {context_query}
+        {context_query}a
         
         Relevant ESC Guidelines:
         {guidelines_text}
         
-        Using the patient’s information and the ESC guidelines, write an answer in simple, clear, and reassuring language that is easy to understand for someone without medical training.
+        You are a caring medical assistant. Using the patient's information and the ESC guidelines, write a clear, concise, and reassuring answer for someone without medical training.
+          Acknowledge the patient's concern in a warm tone.  
+        - Explain why they're experiencing these symptoms in plain language.  
+        - If their situation sounds urgent, recommend they seek immediate medical attention.  
+        - Offer 4 practical tips they can try right away, present each tip in a comprehensive detailed way, why it helps, and how to do it, when you 
+        give hydration advice: if the patient shows volume overload (edema, rapid weight gain) recommend ≤1.5 L/day.
+        If he has stable volume status, normal kidney function and no restriction, suggest up to 2 L/day, recommend tracking daily weight, swelling and report sudden changes.  
+        - If you haven't already urged a visit, list any "red-flag" signs that mean they should see a doctor, and briefly what the doctor would do.  
+        - End with a one-sentence summary of the main points.
 
-        Do not include citations, medical jargon, or any explanations of how you arrived at the answer.
-
-        Just give the final answer in a way that helps the patient feel informed and supported. The response should be brief but not overly short—enough to feel complete and helpful.
-        Do not show your reasoning or thinking process."""
+    Do not include citations, jargon, or your internal reasoning.
+ """
 
         try:
             # Get response from Groq
@@ -306,10 +309,26 @@ class ChatbotService:
         - BMI: {patient_data.get('bmi')}
 
         - Heart Rate: {patient_data.get('heart_rate')} bpm
+        - Rhythm: {patient_data.get('rhythm')}
         - Blood Pressure: {patient_data.get('systolic_bp')}/{patient_data.get('diastolic_bp')} mmHg
         - Respiratory Rate: {patient_data.get('respiratory_rate')} breaths/min
         - Oxygen Saturation: {patient_data.get('oxygen_saturation')}%
         - Temperature: {patient_data.get('temperature')} °C
+
+        - Peripheral Edema: {patient_data.get('edema_locations')} (Grade: {patient_data.get('edema_grade')})
+        - JVP: {patient_data.get('jvp')}
+        - Hepatomegaly: {patient_data.get('hepatomegaly')} {f"({patient_data.get('hepatomegaly_span')} cm)" if patient_data.get('hepatomegaly') == 'Yes' and patient_data.get('hepatomegaly_span') else ''}
+        - Lung Auscultation: {patient_data.get('lung_findings')}
+        - Heart Sounds: {patient_data.get('heart_sounds')}
+        - Murmurs: {patient_data.get('murmurs')}
+        - Other Murmur: {patient_data.get('murmur_other')}
+
+        - Coronary Angiography: {patient_data.get('ca_findings')}
+        - Coronary Angiography Other: {patient_data.get('ca_other_details')}
+        - Cardiac MRI: {patient_data.get('mri_findings')}
+        - Cardiac MRI Other: {patient_data.get('mri_other_details')}
+        - Holter Monitor: {patient_data.get('holter_findings')}
+        - Holter Monitor Other: {patient_data.get('holter_other_details')}
 
         - Heart Failure Type: {patient_data.get('hf_type')}
         - LVEF: {patient_data.get('lvef')}%
@@ -370,12 +389,47 @@ class ChatbotService:
         Relevant ESC Guidelines:
         {guidelines_text}
         
-        Based on the patient's clinical profile and the ESC guidelines, provide a medically accurate answer. Please structure your answer with headings and include a summary of the main points at the end.
+        You are a cardiology AI assistant. Based on the patient's form data and the latest ESC heart failure guidelines, provide a concise, clinically actionable answer to the physician's question.  
 
-        You may use appropriate medical terminology, include relevant citations from the ESC guidelines, and explain the clinical rationale where necessary.
+        **Provide a consise summary of the patient's case**
+        **Answer the Question First**  
+        Begin with a direct response to the doctor's inquiry.  
 
-        However, avoid including any meta-level reasoning or commentary about your thinking process—just provide the medically grounded recommendation or explanation supported by guideline references.
-        Do not show your reasoning or thinking process."""
+        **Medication Optimization**  
+        - If dose adjustment is indicated, specify "Increase [drug] by X mg every Y weeks until reaching a target dose of Z mg daily" (e.g. metoprolol uptitration; ESC §5.2.2).  
+        - If switching therapies, include required wash-out periods (e.g. 36 hours between ACE-I and ARNI; ESC §5.2.2).  
+
+        **Laboratory & Safety Monitoring**  
+        - Recommend checks of renal function (creatinine/eGFR), electrolytes (potassium, sodium), and BNP/NT-proBNP.  
+        - Tie frequency to medication changes (e.g. "Check creatinine and potassium at baseline, 1–2 weeks after each dose change, then every 3 months").  
+
+        **Device Management & Referral**  
+        - If ICD/CRT programming or implantation review is needed, state timing (e.g. "Refer for CRT evaluation if LVEF remains ≤ 35% after 3 months of OMT").  
+        - Arrhythmia: "In AF with symptoms despite rate control, consider cardioversion or antiarrhythmic per ESC §X.X."  
+        - Surgical/referral: "Refer for revascularization if multivessel CAD with LVEF < 35 %"
+
+        **Lifestyle & Supportive Measures**  
+        - Offer specific dietary guidance (e.g. "Restrict sodium to ≤ 2 g/day and fluid to X L/day based on volume status").  
+        - Provide exercise prescription or referral to cardiac rehabilitation (e.g. "Begin supervised exercise 3 times/week for 12 weeks").  
+
+        **Comorbidity & Risk-Factor Control**  
+        - List only relevant targets (e.g. "Aim for BP < 130/80 mmHg with uptitration of ACE-I").  
+        - Advise on diabetes, lipids, smoking, etc., if present.  
+
+        **Advanced & Procedural Interventions**  
+        - If revascularization is indicated, specify PCI vs. CABG referral criteria (e.g. "Refer for CABG in multivessel disease with LVEF < 35%").  
+        - Note valve, LVAD or transplant evaluation triggers if applicable.  
+
+        **Summary**  
+        - End with a brief bulleted recap of the plan.
+
+        **Instructions:**  
+        - Only surface recommendations from sections above that apply to this patient, so choose only the relevant sections and be detailed and comprehensive in each section, and provide a medical rationale for the actions you recommend.
+        - If there is more than one recommendation, Indicate which intervention to tackle first (e.g. "First address volume overload with diuretic uptitration, then consider X"). 
+        - Only when relevant, warn about possible risks for you recommendation or intervention and what to do if they occur (ex. Hypotension , over-diuresis)
+        - Cite specific ESC guideline section numbers after each recommendation and at the end.
+        - Do **not** include your reasoning or internal thought process—deliver only the final, guideline-based plan.  
+"""
 
         try:
             # Get response from Groq
@@ -410,22 +464,38 @@ def chat_interface(patient_id, mode):
     # Display patient info
     patient_data = chatbot.get_patient_data(patient_id)
     if patient_data:
-        st.subheader(f"Patient: {patient_data.get('name')}")
+        st.subheader(f"Patient: {patient_data.get('patient_name')}")
         st.write(f"Age: {patient_data.get('age')}")
         st.write(f"HF Type: {patient_data.get('hf_type')}")
         st.write(f"Current Medications: {patient_data.get('medications')}")
 
+    # Initialize chat history in session state if it doesn't exist
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+
     # Chat interface
     user_query = st.text_input(
-        "Ask a question about heart failure guidelines:")
+        "Ask a question about heart failure guidelines:",
+        key=f"chat_input_{patient_id}_{mode}"
+    )
 
-    if user_query and mode == "Doctor":
-        response = chatbot.generate_doc_response(patient_id, user_query)
-        st.write(response)
+    # Process the query when Enter is pressed
+    if user_query:
+        if mode == "Doctor":
+            response = chatbot.generate_doc_response(patient_id, user_query)
+        else:
+            response = chatbot.generate_patient_response(
+                patient_id, user_query)
 
-    if user_query and mode == "Patient":
-        response = chatbot.generate_patient_response(patient_id, user_query)
-        st.write(response)
+        # Add the exchange to chat history
+        st.session_state.chat_history.append(
+            {"user": user_query, "assistant": response})
+
+        # Display chat history
+        for exchange in st.session_state.chat_history:
+            st.write("You:", exchange["user"])
+            st.write("Assistant:", exchange["assistant"])
+            st.write("---")
 
     # Close connections when done
     chatbot.close()
